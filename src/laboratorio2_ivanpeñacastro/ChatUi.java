@@ -41,6 +41,7 @@ public class ChatUi extends javax.swing.JFrame {
     }
     
     private void agregarAlHistorial() {
+        String pregunta = Pregunta.getText().trim();
         if (!conversacionActual.isEmpty()) {
             // Convertir la conversación actual en un único String para agregar al historial
             StringBuilder conversacionCompleta = new StringBuilder();
@@ -51,13 +52,21 @@ public class ChatUi extends javax.swing.JFrame {
 
             // Actualizar la lista de historial en la interfaz
             DefaultListModel<String> modeloHistorial = (DefaultListModel<String>) Historial.getModel();
-            modeloHistorial.addElement("Conversación " + historialConversaciones.size());
+            modeloHistorial.addElement(pregunta);
             Historial.setModel(modeloHistorial);
 
             // Limpiar la conversación actual para el nuevo chat
             limpiarConversacion();
         }
-    }  
+    }
+    
+    private void limpiarConversacion(){
+        conversacionActual.clear();
+        DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
+        modeloConversacion.clear();
+        Conversacion.setModel(modeloConversacion);
+    }
+    
     
     // Método para mostrar una conversación del historial al hacer click.
     private void mostrarConversacionHistorial() {
@@ -138,14 +147,6 @@ public class ChatUi extends javax.swing.JFrame {
         DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
         modeloConversacion.addElement(texto);
         conversacionActual.add(texto);
-        Conversacion.setModel(modeloConversacion);
-    }
-
-    // Método para limpiar la conversación actual
-    private void limpiarConversacion() {
-        conversacionActual.clear();
-        DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
-        modeloConversacion.clear();
         Conversacion.setModel(modeloConversacion);
     }
 
@@ -328,7 +329,11 @@ public class ChatUi extends javax.swing.JFrame {
     }//GEN-LAST:event_LimpiarActionPerformed
 
     private void LimpiarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_LimpiarMouseClicked
-        limpiarConversacion();
+        historialConversaciones.clear();
+        DefaultListModel<String> modeloHistorial = (DefaultListModel<String>) Historial.getModel();
+        modeloHistorial.clear();
+        Historial.setModel(modeloHistorial);
+        mostrarMensaje("El historial ha sido borrado.", "Información");
     }//GEN-LAST:event_LimpiarMouseClicked
 
     /**

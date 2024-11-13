@@ -40,6 +40,8 @@ public class ChatUi extends javax.swing.JFrame {
         Conversacion.setModel(new DefaultListModel<>());
     }
     
+    private int indiceConversacionActual = -1;
+    
     private void agregarAlHistorial() {
         String pregunta = Pregunta.getText().trim();
         if (!conversacionActual.isEmpty()) {
@@ -60,6 +62,19 @@ public class ChatUi extends javax.swing.JFrame {
         }
     }
     
+    // Método para guardar cambios en la conversación actual
+    private void guardarCambiosConversacionActual() {
+        if (indiceConversacionActual != -1 && !conversacionActual.isEmpty()) {
+            // Convertir la conversación actual en un único String para actualizar en el historial
+            StringBuilder conversacionCompleta = new StringBuilder();
+            for (String mensaje : conversacionActual) {
+            conversacionCompleta.append(mensaje).append("\n");
+            }
+        // Actualizar la conversación en el historial
+        historialConversaciones.set(indiceConversacionActual, conversacionCompleta.toString());
+        }
+    }
+    
     private void limpiarConversacion(){
         conversacionActual.clear();
         DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
@@ -72,14 +87,20 @@ public class ChatUi extends javax.swing.JFrame {
     private void mostrarConversacionHistorial() {
         int indiceSeleccionado = Historial.getSelectedIndex();
         if (indiceSeleccionado != -1) {
+            guardarCambiosConversacionActual();
+            limpiarConversacion();
+            indiceConversacionActual = indiceSeleccionado;
             String conversacionSeleccionada = historialConversaciones.get(indiceSeleccionado);
             DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
             modeloConversacion.clear();
 
             // Dividir la conversación seleccionada y mostrarla en la interfaz
+            modeloConversacion.clear();
+            conversacionActual.clear();
             String[] lineasConversacion = conversacionSeleccionada.split("\n");
             for (String linea : lineasConversacion) {
                 modeloConversacion.addElement(linea);
+                conversacionActual.add(linea);
             }
             Conversacion.setModel(modeloConversacion);
         }
@@ -145,9 +166,11 @@ public class ChatUi extends javax.swing.JFrame {
     // Método para agregar texto a la conversación actual
     private void agregarConversacion(String texto) {
         DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
-        modeloConversacion.addElement(texto);
-        conversacionActual.add(texto);
-        Conversacion.setModel(modeloConversacion);
+        if (!conversacionActual.contains(texto)){
+            conversacionActual.add(texto);
+            modeloConversacion.addElement(texto);
+            Conversacion.setModel(modeloConversacion);
+        }
     }
 
     // Método para mostrar mensajes al usuario
@@ -311,6 +334,7 @@ public class ChatUi extends javax.swing.JFrame {
 
     private void NewChatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_NewChatMouseClicked
         agregarAlHistorial();
+        guardarCambiosConversacionActual();
         mostrarMensaje("Nuevo chat iniciado.", "Información");
     }//GEN-LAST:event_NewChatMouseClicked
 

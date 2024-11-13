@@ -1,10 +1,13 @@
+package laboratorio2_ivanpeñacastro;
+
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
-package laboratorio1_ivanpeñacastro;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import org.json.JSONObject;
 import java.io.OutputStream;
@@ -22,26 +25,135 @@ import javax.swing.ImageIcon;
  */
 public class ChatUi extends javax.swing.JFrame {
     
-
-    /**
-     * Creates new form ChatUi
-     */
-    private ArrayList<String> historialCoversaciones = new ArrayList<>();
-    private ArrayList<String> conversacionActual = new ArrayList<>();
+    // Variables para manejar la conversación y el historial
+    private final ArrayList<String> historialConversaciones = new ArrayList<>();
+    private final ArrayList<String> conversacionActual = new ArrayList<>();
     
     public ChatUi() {
         initComponents();
         setIconImage(new ImageIcon(getClass().getResource("/logo/logo.png")).getImage());
         initializeModels();
     }
+
     private void initializeModels() {
-        DefaultListModel<String> modeloHistorial = new DefaultListModel<>();
-        Historial.setModel(modeloHistorial);
+        Historial.setModel(new DefaultListModel<>());
+        Conversacion.setModel(new DefaultListModel<>());
+    }
+    
+    private void agregarAlHistorial() {
+        String pregunta = Pregunta.getText().trim();
+        if (!conversacionActual.isEmpty()) {
+            // Convertir la conversación actual en un único String para agregar al historial
+            StringBuilder conversacionCompleta = new StringBuilder();
+            for (String mensaje : conversacionActual) {
+                conversacionCompleta.append(mensaje).append("\n");
+            }
+            historialConversaciones.add(conversacionCompleta.toString());
 
-        DefaultListModel<String> modeloConversacion = new DefaultListModel<>();
+            // Actualizar la lista de historial en la interfaz
+            DefaultListModel<String> modeloHistorial = (DefaultListModel<String>) Historial.getModel();
+            modeloHistorial.addElement(pregunta);
+            Historial.setModel(modeloHistorial);
+
+            // Limpiar la conversación actual para el nuevo chat
+            limpiarConversacion();
+        }
+    }
+    
+    private void limpiarConversacion(){
+        conversacionActual.clear();
+        DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
+        modeloConversacion.clear();
         Conversacion.setModel(modeloConversacion);
-    }    
+    }
+    
+    
+    // Método para mostrar una conversación del historial al hacer click.
+    private void mostrarConversacionHistorial() {
+        int indiceSeleccionado = Historial.getSelectedIndex();
+        if (indiceSeleccionado != -1) {
+            String conversacionSeleccionada = historialConversaciones.get(indiceSeleccionado);
+            DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
+            modeloConversacion.clear();
 
+            // Dividir la conversación seleccionada y mostrarla en la interfaz
+            String[] lineasConversacion = conversacionSeleccionada.split("\n");
+            for (String linea : lineasConversacion) {
+                modeloConversacion.addElement(linea);
+            }
+            Conversacion.setModel(modeloConversacion);
+        }
+    }    
+    
+    // Método para enviar la pregunta al chatbot
+    private void enviarPregunta() {
+        String pregunta = Pregunta.getText().trim();
+        if (pregunta.isEmpty()) {
+            mostrarMensaje("Por favor, ingrese una pregunta.", "Advertencia");
+            return;
+        }
+        agregarConversacion("Tú: " + pregunta);
+        solicitarRespuestaApi(pregunta);
+    }
+
+    // Método para realizar la solicitud a la API de Ollama
+    private void solicitarRespuestaApi(String pregunta) {
+        String modelo = "gemma2:2b";
+        String url = "http://localhost:11434/api/generate";
+        try {
+            URL urlObject = new URL(url);
+            HttpURLConnection connection = (HttpURLConnection) urlObject.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json; utf-8");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setDoOutput(true);
+
+            String jsonInputString = String.format("{\"model\": \"%s\", \"prompt\":\"%s\", \"stream\": false}", modelo, pregunta);
+            try (OutputStream outputStream = connection.getOutputStream()) {
+                byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                outputStream.write(input);
+            }
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode == 200) {
+                procesarRespuesta(connection);
+            } else {
+                mostrarMensaje("Error de conexión: Código " + responseCode, "Error");
+            }
+        } catch (IOException e) {
+            mostrarMensaje("Error al conectar con la API: " + e.getMessage(), "Error");
+        }
+    }
+
+    // Método para procesar la respuesta de la API
+    private void procesarRespuesta(HttpURLConnection connection) {
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = in.readLine()) != null) {
+                response.append(line);
+            }
+
+            JSONObject jsonObject = new JSONObject(response.toString());
+            String textoRespuesta = jsonObject.getString("response");
+            agregarConversacion("Ollama: " + textoRespuesta);
+        } catch (Exception e) {
+            mostrarMensaje("Error al procesar la respuesta de la API.", "Error");
+        }
+    }
+
+    // Método para agregar texto a la conversación actual
+    private void agregarConversacion(String texto) {
+        DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
+        modeloConversacion.addElement(texto);
+        conversacionActual.add(texto);
+        Conversacion.setModel(modeloConversacion);
+    }
+
+    // Método para mostrar mensajes al usuario
+    private void mostrarMensaje(String mensaje, String titulo) {
+        JOptionPane.showMessageDialog(this, mensaje, titulo, JOptionPane.INFORMATION_MESSAGE);
+    }
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -190,60 +302,7 @@ public class ChatUi extends javax.swing.JFrame {
     }//GEN-LAST:event_EnviarActionPerformed
 
     private void EnviarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_EnviarMouseClicked
-        String pregunta = Pregunta.getText();
-        String modelo = "gemma2:2b";
-        String url = "http://localhost:11434/api/generate";
-
-        try {
-            URL urlObject = new URL(url);
-            HttpURLConnection connection = (HttpURLConnection) urlObject.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/json; utf-8");
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setDoOutput(true);
-
-            // Crear el cuerpo de la solicitud
-            String jsonInputString = String.format("{\"model\": \"%s\", \"prompt\":\"%s\", \"stream\": false}", modelo, pregunta);
-
-            // Enviar la solicitud
-            try (OutputStream outputStream = connection.getOutputStream()) {
-                byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
-                outputStream.write(input, 0, input.length);
-            }
-
-            // Leer la respuesta
-            int responseCode = connection.getResponseCode();
-            System.out.println("Código de respuesta: " + responseCode);
-
-            if (responseCode == 200) {
-                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = in.readLine()) != null) {
-                    response.append(line);
-                }
-                in.close();
-
-                String respuesta = response.toString();
-
-                // Analizar la respuesta JSON
-                JSONObject jsonObject = new JSONObject(respuesta);
-                String textoDespuesDeResponse = jsonObject.getString("response");
-
-                // Agregar la respuesta a la conversación
-                DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
-                modeloConversacion.addElement("Tú: " + pregunta);
-                modeloConversacion.addElement("Ollama: " + textoDespuesDeResponse);
-                Conversacion.setModel(modeloConversacion);
-                
-            } else {
-                JOptionPane.showMessageDialog(null, "Error: " + responseCode, "Error en la conexión", JOptionPane.ERROR_MESSAGE);
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(null, "Error al conectar con la API.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        enviarPregunta();
     }//GEN-LAST:event_EnviarMouseClicked
 
     private void NewChatActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NewChatActionPerformed
@@ -251,75 +310,12 @@ public class ChatUi extends javax.swing.JFrame {
     }//GEN-LAST:event_NewChatActionPerformed
 
     private void NewChatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_NewChatMouseClicked
-        newChat = false;
-        DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
-        // Almacenar la conversación completa en el historial
-        String conversacionCompleta = "";
-        for (int i = 0; i < modeloConversacion.getSize(); i++) {
-            conversacionCompleta += modeloConversacion.getElementAt(i) + "\n";
-        }
-        String tituloConversacion = modeloConversacion.getElementAt(0).split(":")[1].trim();
-
-        // Eliminar el título existente si ya existe
-        DefaultListModel<String> modeloHistorial = (DefaultListModel<String>) Historial.getModel();
-        for (int i = 0; i < modeloHistorial.getSize(); i++) {
-            if (modeloHistorial.getElementAt(i).equals(tituloConversacion)) {
-                modeloHistorial.remove(i);
-                conversaciones.remove(tituloConversacion);
-                break;
-            }
-        }
-
-        // Agregar el nuevo título al historial
-        modeloHistorial.addElement(tituloConversacion);
-        conversaciones.put(tituloConversacion, conversacionCompleta);
-
-        // Refrescar el historial
-        Historial.setModel(modeloHistorial);
-
-        modeloConversacion.clear();
+        agregarAlHistorial();
+        mostrarMensaje("Nuevo chat iniciado.", "Información");
     }//GEN-LAST:event_NewChatMouseClicked
 
     private void HistorialMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_HistorialMouseClicked
-    String seleccion = Historial.getSelectedValue();
-    String conversacionCompleta = conversaciones.get(seleccion);
-    
-    // Almacenar la conversación actual en el historial
-    DefaultListModel<String> modeloConversacion = (DefaultListModel<String>) Conversacion.getModel();
-    if (modeloConversacion.getSize() > 0) {
-        String conversacionActual = "";
-        for (int i = 0; i < modeloConversacion.getSize(); i++) {
-            conversacionActual += modeloConversacion.getElementAt(i) + "\n";
-        }
-        String tituloConversacionActual = modeloConversacion.getElementAt(0).split(":")[1].trim();
-        DefaultListModel<String> modeloHistorial = (DefaultListModel<String>) Historial.getModel();
-        
-        // Eliminar el título existente si ya existe
-        int indiceEliminar = -1;
-        for (int i = 0; i < modeloHistorial.getSize(); i++) {
-            if (modeloHistorial.getElementAt(i).equals(tituloConversacionActual)) {
-                indiceEliminar = i;
-                break;
-            }
-        }
-        
-        if (indiceEliminar != -1) {
-            modeloHistorial.remove(indiceEliminar);
-            conversaciones.remove(tituloConversacionActual);
-        }
-        
-        // Agregar el nuevo título al historial
-        modeloHistorial.addElement(tituloConversacionActual);
-        conversaciones.put(tituloConversacionActual, conversacionActual);
-    }
-    
-    // Sobreescribir la conversación actual con la conversación seleccionada
-    modeloConversacion.clear();
-    String[] lineasConversacion = conversacionCompleta.split("\n");
-    for (String linea : lineasConversacion) {
-        modeloConversacion.addElement(linea);
-    }
-    Conversacion.setModel(modeloConversacion);
+        mostrarConversacionHistorial();
     }//GEN-LAST:event_HistorialMouseClicked
 
     
@@ -333,45 +329,16 @@ public class ChatUi extends javax.swing.JFrame {
     }//GEN-LAST:event_LimpiarActionPerformed
 
     private void LimpiarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_LimpiarMouseClicked
+        historialConversaciones.clear();
         DefaultListModel<String> modeloHistorial = (DefaultListModel<String>) Historial.getModel();
         modeloHistorial.clear();
-        newChat = false;
+        Historial.setModel(modeloHistorial);
+        mostrarMensaje("El historial ha sido borrado.", "Información");
     }//GEN-LAST:event_LimpiarMouseClicked
 
     /**
      * @param args the command line arguments
      */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(ChatUi.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(ChatUi.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(ChatUi.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(ChatUi.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new ChatUi().setVisible(true);
-            }
-        });
-    }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JList<String> Conversacion;
@@ -385,4 +352,6 @@ public class ChatUi extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     // End of variables declaration//GEN-END:variables
+
 }
+
